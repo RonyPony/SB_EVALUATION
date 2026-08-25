@@ -1,0 +1,25 @@
+@host = http://localhost:5080
+
+### Public endpoint
+GET {{host}}/api/sample/public
+Accept: application/json
+
+### Health check
+GET {{host}}/health
+
+### Login; copy accessToken into the variable below
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "username": "demo", "password": "demo-password-not-real" }
+
+### Token returned by login
+@accessToken = paste-token-here
+
+### Protected endpoint
+GET {{host}}/api/sample/protected
+Authorization: Bearer {{accessToken}}
+
+### Role-protected endpoint
+GET {{host}}/api/sample/admin
+Authorization: Bearer {{accessToken}}

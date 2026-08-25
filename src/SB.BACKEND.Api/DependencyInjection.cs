@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using SB.BACKEND.Application.Authentication;
+using SB.BACKEND.Application.Security;
 namespace SB.BACKEND.Api;
 public static class DependencyInjection
 {
@@ -35,7 +36,11 @@ public static class DependencyInjection
                     "The authenticated user does not have the required permission.", context.Request.Path)
             };
         });
-        services.AddAuthorization();
+        services.AddAuthorization(options =>
+        {
+            foreach (var permission in Permissions.All)
+                options.AddPolicy(permission, policy => policy.RequireClaim(Permissions.ClaimType, permission));
+        });
         return services;
     }
     public static IServiceCollection AddApiDocumentation(this IServiceCollection services)

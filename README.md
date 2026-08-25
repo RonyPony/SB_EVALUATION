@@ -1,13 +1,13 @@
 # SB.BACKEND
 
-Web API ASP.NET Core en .NET 8 con Onion Architecture y autenticación JWT Bearer.
+Web API ASP.NET Core en .NET 8 con Onion Architecture, EF Core/SQL Server y autenticación JWT Bearer.
 
 ## Proyectos
 
 - `Domain`: modelo de dominio, sin referencias a otros proyectos.
-- `Application`: contratos de autenticación; solo referencia `Domain`.
-- `Services`: JWT y usuario demostrativo; referencia `Application` y `Domain`.
-- `Infrastructure`: registro para persistencia futura, todavía sin base de datos ni repositorios ficticios.
+- `Application`: DTO, contratos de seguridad, repositorios y excepciones de aplicación.
+- `Services`: casos de uso, JWT y hashing PBKDF2-SHA256.
+- `Infrastructure`: EF Core, SQL Server, repositorios, migraciones y seed.
 - `Api`: controladores y Composition Root.
 
 ## Restaurar y compilar
@@ -17,17 +17,13 @@ dotnet restore .\SB.BACKEND.sln
 dotnet build .\SB.BACKEND.sln --configuration Debug --no-restore
 ```
 
-## Secretos de desarrollo
+## Configuración local
 
-Development incluye valores deliberadamente inseguros para ejecutar la demostración. Para reemplazar la clave con User Secrets:
+La conexión a `LEGEND\\SQLEXPRESS`, la base `SB_EVALUATION_RONEL` y las credenciales solicitadas están configuradas directamente en `appsettings.json`. El nombre y correo del usuario `demo` permanecen en `appsettings.Development.json`; el seed guarda únicamente el hash de su contraseña en SQL Server.
 
-```powershell
-dotnet user-secrets set "Jwt:SecretKey" "replace-with-a-random-key-of-at-least-32-characters" --project .\src\SB.BACKEND.Api
-dotnet user-secrets set "DemoUser:Username" "local-user" --project .\src\SB.BACKEND.Api
-dotnet user-secrets set "DemoUser:Password" "local-development-password" --project .\src\SB.BACKEND.Api
-```
+Al iniciar, la aplicación aplica migraciones, crea los roles `Admin` y `User`, asigna todos los permisos a `Admin` y crea el usuario demo de forma idempotente.
 
-No almacene secretos reales en `appsettings*.json` ni en Git.
+Para producción se recomienda sobrescribir `ConnectionStrings__DefaultConnection`, `DemoUser__Password` y `Jwt__SecretKey` mediante variables de entorno y no versionar credenciales reales.
 
 ## Ejecutar
 
@@ -47,13 +43,31 @@ $env:ASPNETCORE_ENVIRONMENT = "Production"
 dotnet run --project .\src\SB.BACKEND.Api
 ```
 
+## Migraciones
+
+```powershell
+dotnet tool restore
+dotnet tool run dotnet-ef database update --project .\src\SB.BACKEND.Infrastructure --startup-project .\src\SB.BACKEND.Api
+```
+
+## API de seguridad
+
+- `POST /api/auth/register`, `POST /api/auth/login`
+- `GET /api/users`, `GET /api/users/{id}`
+- `PUT|DELETE /api/users/{userId}/roles/{roleId}`
+- `GET|POST /api/roles`, `PUT|DELETE /api/roles/{id}`
+- `PUT|DELETE /api/roles/{roleId}/permissions/{permissionId}`
+- `GET /api/permissions` (solo lectura)
+
+Salvo registro y login, los endpoints exigen JWT y la política `SECURITY.*` correspondiente.
+
 ## Probar autenticación
 
 ```powershell
 $login = Invoke-RestMethod -Method Post `
   -Uri "http://localhost:5080/api/auth/login" `
   -ContentType "application/json" `
-  -Body '{"username":"demo","password":"demo-password-not-real"}'
+  -Body '{"username":"demo","password":"the-value-stored-in-user-secrets"}'
 
 Invoke-RestMethod -Uri "http://localhost:5080/api/sample/protected" `
   -Headers @{ Authorization = "Bearer $($login.accessToken)" }

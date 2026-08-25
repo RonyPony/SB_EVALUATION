@@ -2,6 +2,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SB.BACKEND.Application.Authentication;
 using SB.BACKEND.Services.Authentication;
+using SB.BACKEND.Application.Security;
+using SB.BACKEND.Services.Security;
 namespace SB.BACKEND.Services;
 public static class DependencyInjection
 {
@@ -17,7 +19,11 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddOptions<DemoUserSettings>().Bind(configuration.GetSection(DemoUserSettings.SectionName));
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
-        services.AddSingleton<IUserCredentialValidator, DemoUserCredentialValidator>();
+        services.AddSingleton<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<IAuthenticationService, AuthenticationService>();
+        services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IRoleService, RoleService>();
+        services.AddScoped<IPermissionService, PermissionService>();
         return services;
     }
 }

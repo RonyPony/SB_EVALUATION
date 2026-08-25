@@ -1,20 +1,28 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SB.BACKEND.Application.Authentication;
+using SB.BACKEND.Application.Security;
 namespace SB.BACKEND.Api.Controllers;
 [ApiController, Route("api/[controller]")]
-public sealed class AuthController(IUserCredentialValidator validator, IJwtTokenService tokens) : ControllerBase
+public sealed class AuthController(IAuthenticationService authentication) : ControllerBase
 {
+    [AllowAnonymous, HttpPost("register")]
+    [ProducesResponseType<UserResponse>(StatusCodes.Status201Created)]
+    public async Task<ActionResult<UserResponse>> Register(RegisterUserRequest request, CancellationToken cancellationToken)
+    {
+        var user = await authentication.RegisterAsync(request, cancellationToken);
+        return CreatedAtAction(nameof(UsersController.GetById), "Users", new { id = user.Id }, user);
+    }
+
     [AllowAnonymous, HttpPost("login")]
     [ProducesResponseType<LoginResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    public ActionResult<LoginResponse> Login(LoginRequest request)
+    public async Task<ActionResult<LoginResponse>> Login(LoginRequest request, CancellationToken cancellationToken)
     {
-        var user = validator.Validate(request.Username, request.Password);
-        if (user is null)
+        var response = await authentication.LoginAsync(request, cancellationToken);
+        if (response is null)
             return Problem(statusCode: 401, title: "Invalid credentials",
                 detail: "The supplied username or password is invalid.", type: "https://httpstatuses.com/401");
-        var token = tokens.GenerateToken(user);
-        return Ok(new LoginResponse(token.AccessToken, "Bearer", token.ExpiresAt));
+        return Ok(response);
     }
 }

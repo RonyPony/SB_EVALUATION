@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SB.BACKEND.Application.Security;
+using SB.BACKEND.Application.Common;
 
 namespace SB.BACKEND.Api.Controllers;
 
@@ -9,6 +10,8 @@ public sealed class UsersController(IUserService users) : ControllerBase
 {
     [HttpGet, Authorize(Policy = Permissions.UserView)]
     public async Task<ActionResult<IReadOnlyCollection<UserResponse>>> GetAll(CancellationToken ct) => Ok(await users.GetAllAsync(ct));
+    [HttpGet("analysts"), Authorize(Policy = "SupportStaff")]
+    public Task<PagedResult<UserResponse>> GetAnalysts([FromQuery]string? search,[FromQuery]int pageNumber=1,[FromQuery]int pageSize=20,CancellationToken ct=default) => users.GetAnalystsAsync(search,pageNumber,pageSize,ct);
     [HttpGet("{id:guid}"), Authorize(Policy = Permissions.UserView)]
     public async Task<ActionResult<UserResponse>> GetById(Guid id, CancellationToken ct) => Ok(await users.GetByIdAsync(id, ct));
     [HttpPut("{userId:guid}/roles/{roleId:guid}"), Authorize(Policy = Permissions.UserAssignRole)]

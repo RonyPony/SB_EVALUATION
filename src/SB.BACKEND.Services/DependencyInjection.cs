@@ -6,6 +6,8 @@ using SB.BACKEND.Application.Security;
 using SB.BACKEND.Services.Security;
 using SB.BACKEND.Application.GovernmentEntities;
 using SB.BACKEND.Services.GovernmentEntities;
+using SB.BACKEND.Application.Support;
+using SB.BACKEND.Services.Support;
 namespace SB.BACKEND.Services;
 public static class DependencyInjection
 {
@@ -27,6 +29,11 @@ public static class DependencyInjection
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<IGovernmentEntityService, GovernmentEntityService>();
+        services.AddScoped<IAreaService, AreaService>();
+        services.AddScoped<ISolicitudService, SolicitudService>();
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<INotificationApplicationService, NotificationApplicationService>();
+        services.AddScoped<IDashboardService, DashboardService>();
         return services;
     }
 }

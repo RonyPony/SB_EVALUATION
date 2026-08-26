@@ -94,3 +94,71 @@ Invoke-RestMethod -Uri "http://localhost:5080/api/sample/admin" `
 ```
 
 También puede ejecutar en orden las solicitudes de `src/SB.BACKEND.Api/SB.BACKEND.Api.http` desde Visual Studio.
+
+
+### Modelo y persistencia
+
+- `Area`: catálogo auditable con nombre normalizado, estado y eliminación lógica.
+- `SolicitudSoporte`: solicitud vinculada a un área, al usuario solicitante y opcionalmente a un responsable.
+- `HistorialSolicitud`: registro inmutable y cronológico de transiciones y asignaciones.
+- `ComentarioSolicitud`: comentario público o interno con auditoría y eliminación lógica.
+- `Notificacion`: notificación persistida por usuario y solicitud.
+
+Las relaciones usan `DeleteBehavior.Restrict`. Los filtros globales excluyen solicitudes, áreas y comentarios eliminados. Las fechas se guardan como `datetimeoffset` en UTC. Las escrituras de entidades auditables actualizan automáticamente `CreatedAt`, `UpdatedAt`, `CreatedBy` y `UpdatedBy`; la eliminación lógica establece `IsDeleted`, `DeletedAt` y `DeletedBy`. La concurrencia optimista utiliza `rowversion` enviado como Base64.
+
+La migración `20260826040652_AddSupportPlatform` crea las tablas, claves foráneas, índices y la secuencia `SolicitudCodeSequence`. El código se genera en SQL Server con el formato `SOL-{AÑO}-{CONSECUTIVO}` y tiene índice único. La secuencia evita el patrón inseguro `Count() + 1` y garantiza valores distintos bajo concurrencia.
+
+### Roles y autorización
+
+El inicializador crea idempotentemente `Administrador`, `Analista` y `Solicitante`. Se conservan `Admin` y `User`; `Admin` se considera equivalente administrativo para compatibilidad. El usuario demo recibe `Administrador` sin duplicar relaciones. `SupportAdmin` admite `Admin` o `Administrador`; `SupportStaff` admite además `Analista`.
+
+La autorización por recurso se completa en los servicios: el administrador ve todas las solicitudes; el analista ve las asignadas y las disponibles sin responsable; el solicitante solo ve las propias. Los comentarios internos se restringen al personal de soporte. Un responsable debe ser un usuario activo con rol `Analista`, `Administrador` o `Admin`.
+
+### Flujo de estados
+
+Las transiciones se centralizan en el dominio:
+
+- `Registrada` → `EnAnalisis`.
+- `EnAnalisis` → `EnProgreso`.
+- `EnProgreso` → `EnEsperaSolicitante` o `Resuelta`.
+- `EnEsperaSolicitante` → `EnProgreso`.
+- `Resuelta` → `EnProgreso` o `Cerrada`.
+- `Cerrada` → `EnProgreso` únicamente mediante reapertura autorizada.
+
+Cada cambio registra usuario, fecha UTC, estado anterior, estado nuevo y comentario. Resolver exige comentario de resolución y cerrar exige una resolución registrada. Una transición inválida produce `409 Conflict`. La asignación y reasignación también conservan responsable anterior, responsable nuevo, actor y fecha en el historial.
+
+### Notificaciones y consistencia
+
+`INotificationService` desacopla la creación de notificaciones del caso de uso. Se generan registros por creación, asignación, reasignación, cambio de estado, resolución, cierre, reapertura y comentario público. La modificación, el historial y la notificación se confirman mediante el mismo `SecurityDbContext` y `SaveChangesAsync`, por lo que forman una única unidad transaccional.
+
+### Endpoints
+
+- Áreas: `GET|POST /api/areas`, `GET|PUT|DELETE /api/areas/{id}`, `PATCH /api/areas/{id}/estado`.
+- Solicitudes: `GET|POST /api/solicitudes`, `GET|PUT|PATCH|DELETE /api/solicitudes/{id}`.
+- Operaciones: `PATCH /api/solicitudes/{id}/prioridad`, `/asignacion`, `/estado` y `/reabrir`.
+- Trazabilidad: `GET /api/solicitudes/{id}/historial`.
+- Comentarios: `GET|POST /api/solicitudes/{id}/comentarios`, `PATCH|DELETE /api/solicitudes/{id}/comentarios/{comentarioId}`.
+- Responsables elegibles: `GET /api/users/analysts?search=&pageNumber=1&pageSize=20`.
+- Notificaciones: `GET /api/notificaciones`, `GET /api/notificaciones/no-leidas/count`, `PATCH /api/notificaciones/{id}/leida`, `PATCH /api/notificaciones/leer-todas`.
+- Métricas: `GET /api/dashboard/solicitudes`.
+
+El listado acepta búsqueda, estado, prioridad, área, solicitante, responsable, solicitudes sin responsable, tipo, rangos de creación y compromiso, vencidas, orden y paginación. Abiertas son las solicitudes no cerradas; cerradas tienen estado `Cerrada`; vencidas son las no cerradas con compromiso anterior a la hora UTC actual. Todas las métricas excluyen eliminadas y respetan el alcance del usuario.
+
+### Ejemplo de operación
+
+```powershell
+$token = (Invoke-RestMethod -Method Post -Uri "http://localhost:5080/api/auth/login" -ContentType "application/json" -Body '{"username":"demo","password":"valor-configurado"}').accessToken
+$headers = @{ Authorization = "Bearer $token" }
+Invoke-RestMethod -Method Get -Uri "http://localhost:5080/api/areas" -Headers $headers
+Invoke-RestMethod -Method Get -Uri "http://localhost:5080/api/solicitudes?pageNumber=1&pageSize=20" -Headers $headers
+Invoke-RestMethod -Method Get -Uri "http://localhost:5080/api/dashboard/solicitudes" -Headers $headers
+```
+
+
+## Referencia documental
+
+Documento de Prueba Técnica De Ronel Cruz
+Versión 1.0  
+Agosto de 2026  
+Uso exclusivo de la Superintendencia de Bancos  
+Distribución autorizada por el área responsable

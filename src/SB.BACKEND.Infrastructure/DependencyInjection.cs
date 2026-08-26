@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SB.BACKEND.Application.Security;
 using SB.BACKEND.Application.GovernmentEntities;
+using SB.BACKEND.Application.Support;
 using SB.BACKEND.Infrastructure.Persistence;
 using SB.BACKEND.Infrastructure.Persistence.Repositories;
 namespace SB.BACKEND.Infrastructure;
@@ -34,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IPermissionRepository, PermissionRepository>();
         services.AddScoped<IGovernmentEntityRepository, GovernmentEntityRepository>();
+        services.AddScoped<ISupportRepository, SupportRepository>();
         services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<SecurityDbContext>());
         services.AddScoped<IDatabaseInitializer, DatabaseInitializer>();
         services.AddScoped<IGovernmentEntitySeeder, GovernmentEntitySeeder>();

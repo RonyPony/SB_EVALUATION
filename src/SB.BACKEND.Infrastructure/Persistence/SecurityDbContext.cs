@@ -5,6 +5,7 @@ using SB.BACKEND.Application.Security;
 using SB.BACKEND.Domain.Common;
 using SB.BACKEND.Domain.GovernmentEntities;
 using SB.BACKEND.Domain.Security;
+using SB.BACKEND.Domain.Support;
 
 namespace SB.BACKEND.Infrastructure.Persistence;
 
@@ -18,10 +19,16 @@ public sealed class SecurityDbContext : DbContext, IUnitOfWork
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<EntidadGubernamental> EntidadesGubernamentales => Set<EntidadGubernamental>();
+    public DbSet<Area> Areas => Set<Area>();
+    public DbSet<SolicitudSoporte> SolicitudesSoporte => Set<SolicitudSoporte>();
+    public DbSet<HistorialSolicitud> HistorialSolicitudes => Set<HistorialSolicitud>();
+    public DbSet<ComentarioSolicitud> ComentariosSolicitud => Set<ComentarioSolicitud>();
+    public DbSet<Notificacion> Notificaciones => Set<Notificacion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(SecurityDbContext).Assembly);
+        modelBuilder.HasSequence<long>("SolicitudCodeSequence").StartsAt(1).IncrementsBy(1);
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

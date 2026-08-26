@@ -105,5 +105,5 @@ public sealed class GovernmentEntityTests
 
     private static CreateGovernmentEntityRequest Request(string name, string category = "Categoría", string power = "Poder Ejecutivo", string sector = "Sector") =>
         new() { Nombre = name, Categoria = category, PoderDelEstado = power, Sector = sector };
-    private sealed class TestCurrentUser : ICurrentUserService { public Guid? UserId { get; } = Guid.NewGuid(); }
+    private sealed class TestCurrentUser : ICurrentUserService { public Guid? UserId { get; } = Guid.NewGuid(); public IReadOnlyCollection<string> Roles { get; } = ["Admin"]; public bool IsInRole(params string[] roles) => roles.Contains("Admin"); }
 }

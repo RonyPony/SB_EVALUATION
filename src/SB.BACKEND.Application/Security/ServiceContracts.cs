@@ -1,4 +1,5 @@
 using SB.BACKEND.Application.Authentication;
+using SB.BACKEND.Application.Common;
 
 namespace SB.BACKEND.Application.Security;
 
@@ -11,6 +12,7 @@ public interface IUserService
 {
     Task<IReadOnlyCollection<UserResponse>> GetAllAsync(CancellationToken cancellationToken);
     Task<UserResponse> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+    Task<PagedResult<UserResponse>> GetAnalystsAsync(string? search, int pageNumber, int pageSize, CancellationToken cancellationToken);
     Task AssignRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken);
     Task RemoveRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken);
 }

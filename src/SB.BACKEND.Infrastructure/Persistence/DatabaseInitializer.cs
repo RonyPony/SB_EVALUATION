@@ -17,6 +17,9 @@ internal sealed class DatabaseInitializer(SecurityDbContext dbContext, IPassword
         var demo = demoOptions.Value;
         var admin = await GetOrCreateRoleAsync("Admin", "Full security administration role.", ct);
         var userRole = await GetOrCreateRoleAsync("User", "Default application user role.", ct);
+        var administrador = await GetOrCreateRoleAsync("Administrador", "Administración integral de la plataforma de soporte.", ct);
+        await GetOrCreateRoleAsync("Analista", "Atención y gestión de solicitudes asignadas.", ct);
+        await GetOrCreateRoleAsync("Solicitante", "Registro y seguimiento de solicitudes propias.", ct);
         var permissions = await dbContext.Permissions.ToListAsync(ct);
         foreach (var permission in permissions)
             if (admin.RolePermissions.All(x => x.PermissionId != permission.Id)) admin.RolePermissions.Add(new RolePermission(admin.Id, permission.Id));
@@ -24,12 +27,14 @@ internal sealed class DatabaseInitializer(SecurityDbContext dbContext, IPassword
         if (!string.IsNullOrWhiteSpace(demo.Username) && !string.IsNullOrWhiteSpace(demo.Password))
         {
             var normalizedUsername = demo.Username.Trim().ToUpperInvariant();
-            if (!await dbContext.Users.AnyAsync(x => x.NormalizedUsername == normalizedUsername, ct))
+            var existingUser = await dbContext.Users.Include(x => x.UserRoles).SingleOrDefaultAsync(x => x.NormalizedUsername == normalizedUsername, ct);
+            if (existingUser is null)
             {
                 var email = string.IsNullOrWhiteSpace(demo.Email) ? $"{demo.Username}@local.invalid" : demo.Email.Trim();
                 var user = new User(demo.Username.Trim(), normalizedUsername, email, email.ToUpperInvariant(), passwordHasher.Hash(demo.Password));
-                user.UserRoles.Add(new UserRole(user.Id, admin.Id)); user.UserRoles.Add(new UserRole(user.Id, userRole.Id)); dbContext.Users.Add(user);
+                user.UserRoles.Add(new UserRole(user.Id, admin.Id)); user.UserRoles.Add(new UserRole(user.Id, userRole.Id)); user.UserRoles.Add(new UserRole(user.Id, administrador.Id)); dbContext.Users.Add(user);
             }
+            else if (existingUser.UserRoles.All(x => x.RoleId != administrador.Id)) existingUser.UserRoles.Add(new UserRole(existingUser.Id, administrador.Id));
         }
         await dbContext.SaveChangesAsync(ct);
         await governmentSeeder.SeedAsync(ct);

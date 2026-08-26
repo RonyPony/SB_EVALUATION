@@ -40,6 +40,8 @@ public static class DependencyInjection
         {
             foreach (var permission in Permissions.All)
                 options.AddPolicy(permission, policy => policy.RequireClaim(Permissions.ClaimType, permission));
+            options.AddPolicy("SupportAdmin", policy => policy.RequireRole("Admin", "Administrador"));
+            options.AddPolicy("SupportStaff", policy => policy.RequireRole("Admin", "Administrador", "Analista"));
         });
         return services;
     }

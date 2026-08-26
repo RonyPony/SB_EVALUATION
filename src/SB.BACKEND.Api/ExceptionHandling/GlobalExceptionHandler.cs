@@ -11,6 +11,7 @@ internal sealed class GlobalExceptionHandler(IProblemDetailsService problems, IL
             NotFoundException => (404, "Resource not found", exception.Message),
             ConflictException => (409, "Conflict", exception.Message),
             ValidationException => (400, "Validation error", exception.Message),
+            ForbiddenException => (403, "Forbidden", exception.Message),
             _ => (500, "An unexpected error occurred.", "The server could not complete the request.")
         };
         if (status == 500) logger.LogError(exception, "An unhandled exception occurred while processing {Path}.", context.Request.Path);

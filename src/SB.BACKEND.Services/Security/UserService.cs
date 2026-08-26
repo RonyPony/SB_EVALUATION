@@ -8,6 +8,13 @@ internal sealed class UserService(IUserRepository users, IRoleRepository roles, 
 {
     public async Task<IReadOnlyCollection<UserResponse>> GetAllAsync(CancellationToken ct) => (await users.GetAllAsync(ct)).Select(x => x.ToResponse()).ToArray();
     public async Task<UserResponse> GetByIdAsync(Guid id, CancellationToken ct) => (await GetUserAsync(id, ct)).ToResponse();
+    public async Task<PagedResult<UserResponse>> GetAnalystsAsync(string? search, int pageNumber, int pageSize, CancellationToken ct)
+    {
+        if (pageNumber < 1 || pageSize is < 1 or > 100) throw new ValidationException("La paginación no es válida.");
+        var source = (await users.GetAllAsync(ct)).Where(x => x.IsActive && x.UserRoles.Any(r => r.Role.Name is "Analista" or "Administrador" or "Admin"));
+        if (!string.IsNullOrWhiteSpace(search)) source = source.Where(x => x.Username.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase) || x.Email.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase));
+        var values = source.OrderBy(x => x.Username).ToArray(); return new(values.Skip((pageNumber - 1) * pageSize).Take(pageSize).Select(x => x.ToResponse()).ToArray(), pageNumber, pageSize, values.Length);
+    }
     public async Task AssignRoleAsync(Guid userId, Guid roleId, CancellationToken ct)
     {
         var user = await GetUserAsync(userId, ct); _ = await GetRoleAsync(roleId, ct);

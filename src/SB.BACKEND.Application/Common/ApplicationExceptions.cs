@@ -4,3 +4,4 @@ public abstract class ApplicationExceptionBase(string message) : Exception(messa
 public sealed class NotFoundException(string message) : ApplicationExceptionBase(message);
 public sealed class ConflictException(string message) : ApplicationExceptionBase(message);
 public sealed class ValidationException(string message) : ApplicationExceptionBase(message);
+public sealed class ForbiddenException(string message) : ApplicationExceptionBase(message);

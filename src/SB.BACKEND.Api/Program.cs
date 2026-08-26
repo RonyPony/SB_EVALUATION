@@ -1,5 +1,7 @@
 using SB.BACKEND.Api;
 using SB.BACKEND.Api.ExceptionHandling;
+using SB.BACKEND.Api.Services;
+using SB.BACKEND.Application.Common;
 using SB.BACKEND.Application;
 using SB.BACKEND.Infrastructure;
 using SB.BACKEND.Infrastructure.Persistence;
@@ -22,6 +24,8 @@ builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddHealthChecks();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 var app = builder.Build();
 

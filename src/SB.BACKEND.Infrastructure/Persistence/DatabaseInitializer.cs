@@ -9,7 +9,7 @@ namespace SB.BACKEND.Infrastructure.Persistence;
 public interface IDatabaseInitializer { Task InitializeAsync(CancellationToken cancellationToken = default); }
 
 internal sealed class DatabaseInitializer(SecurityDbContext dbContext, IPasswordHasher passwordHasher,
-    IOptions<DemoUserSettings> demoOptions) : IDatabaseInitializer
+    IOptions<DemoUserSettings> demoOptions, IGovernmentEntitySeeder governmentSeeder) : IDatabaseInitializer
 {
     public async Task InitializeAsync(CancellationToken ct = default)
     {
@@ -21,19 +21,18 @@ internal sealed class DatabaseInitializer(SecurityDbContext dbContext, IPassword
         foreach (var permission in permissions)
             if (admin.RolePermissions.All(x => x.PermissionId != permission.Id)) admin.RolePermissions.Add(new RolePermission(admin.Id, permission.Id));
 
-        if (string.IsNullOrWhiteSpace(demo.Username) || string.IsNullOrWhiteSpace(demo.Password))
-        { await dbContext.SaveChangesAsync(ct); return; }
-
-        var normalizedUsername = demo.Username.Trim().ToUpperInvariant();
-        if (await dbContext.Users.AnyAsync(x => x.NormalizedUsername == normalizedUsername, ct))
-        { await dbContext.SaveChangesAsync(ct); return; }
-
-        var email = string.IsNullOrWhiteSpace(demo.Email) ? $"{demo.Username}@local.invalid" : demo.Email.Trim();
-        var user = new User(demo.Username.Trim(), normalizedUsername, email, email.ToUpperInvariant(), passwordHasher.Hash(demo.Password));
-        user.UserRoles.Add(new UserRole(user.Id, admin.Id));
-        user.UserRoles.Add(new UserRole(user.Id, userRole.Id));
-        dbContext.Users.Add(user);
+        if (!string.IsNullOrWhiteSpace(demo.Username) && !string.IsNullOrWhiteSpace(demo.Password))
+        {
+            var normalizedUsername = demo.Username.Trim().ToUpperInvariant();
+            if (!await dbContext.Users.AnyAsync(x => x.NormalizedUsername == normalizedUsername, ct))
+            {
+                var email = string.IsNullOrWhiteSpace(demo.Email) ? $"{demo.Username}@local.invalid" : demo.Email.Trim();
+                var user = new User(demo.Username.Trim(), normalizedUsername, email, email.ToUpperInvariant(), passwordHasher.Hash(demo.Password));
+                user.UserRoles.Add(new UserRole(user.Id, admin.Id)); user.UserRoles.Add(new UserRole(user.Id, userRole.Id)); dbContext.Users.Add(user);
+            }
+        }
         await dbContext.SaveChangesAsync(ct);
+        await governmentSeeder.SeedAsync(ct);
     }
 
     private async Task<Role> GetOrCreateRoleAsync(string name, string description, CancellationToken ct)

@@ -4,6 +4,8 @@ using SB.BACKEND.Application.Authentication;
 using SB.BACKEND.Services.Authentication;
 using SB.BACKEND.Application.Security;
 using SB.BACKEND.Services.Security;
+using SB.BACKEND.Application.GovernmentEntities;
+using SB.BACKEND.Services.GovernmentEntities;
 namespace SB.BACKEND.Services;
 public static class DependencyInjection
 {
@@ -24,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IPermissionService, PermissionService>();
+        services.AddScoped<IGovernmentEntityService, GovernmentEntityService>();
         return services;
     }
 }

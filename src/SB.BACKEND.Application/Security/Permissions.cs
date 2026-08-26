@@ -14,8 +14,14 @@ public static class Permissions
     public const string RoleDelete = "SECURITY.ROLE.DELETE";
     public const string RoleAssignPermission = "SECURITY.ROLE.ASSIGN_PERMISSION";
     public const string PermissionView = "SECURITY.PERMISSION.VIEW";
+    public const string GovernmentEntityView = "GOVERNMENT_ENTITY.VIEW";
+    public const string GovernmentEntityCreate = "GOVERNMENT_ENTITY.CREATE";
+    public const string GovernmentEntityUpdate = "GOVERNMENT_ENTITY.UPDATE";
+    public const string GovernmentEntityDelete = "GOVERNMENT_ENTITY.DELETE";
+    public const string GovernmentEntityRestore = "GOVERNMENT_ENTITY.RESTORE";
 
     public static readonly IReadOnlyCollection<string> All =
     [ UserView, UserCreate, UserUpdate, UserDelete, UserAssignRole, RoleView, RoleCreate,
-      RoleUpdate, RoleDelete, RoleAssignPermission, PermissionView ];
+      RoleUpdate, RoleDelete, RoleAssignPermission, PermissionView, GovernmentEntityView, GovernmentEntityCreate,
+      GovernmentEntityUpdate, GovernmentEntityDelete, GovernmentEntityRestore ];
 }

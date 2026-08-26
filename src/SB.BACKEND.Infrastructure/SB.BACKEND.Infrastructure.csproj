@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
+  <ItemGroup><InternalsVisibleTo Include="SB.BACKEND.Tests" /></ItemGroup>
   <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.20" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.20">
       <PrivateAssets>all</PrivateAssets>
@@ -12,6 +14,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
   </ItemGroup>
+  <ItemGroup><None Include="Data\Seed\ListaEntidadesGubernamentales.xlsx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="Data\Seed\ListaEntidadesGubernamentales.xlsx" /></ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SB.BACKEND.Application\SB.BACKEND.Application.csproj" />
     <ProjectReference Include="..\SB.BACKEND.Domain\SB.BACKEND.Domain.csproj" />

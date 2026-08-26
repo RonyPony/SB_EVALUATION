@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><IsPackable>false</IsPackable><IsTestProject>true</IsTestProject></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.20" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2"><PrivateAssets>all</PrivateAssets><IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets></PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SB.BACKEND.Application\SB.BACKEND.Application.csproj" />
+    <ProjectReference Include="..\..\src\SB.BACKEND.Domain\SB.BACKEND.Domain.csproj" />
+    <ProjectReference Include="..\..\src\SB.BACKEND.Infrastructure\SB.BACKEND.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\SB.BACKEND.Services\SB.BACKEND.Services.csproj" />
+  </ItemGroup>
+  <ItemGroup><None Include="..\..\src\SB.BACKEND.Infrastructure\Data\Seed\ListaEntidadesGubernamentales.xlsx" Link="Data\Seed\ListaEntidadesGubernamentales.xlsx" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+</Project>

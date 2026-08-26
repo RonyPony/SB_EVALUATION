@@ -61,6 +61,23 @@ dotnet tool run dotnet-ef database update --project .\src\SB.BACKEND.Infrastruct
 
 Salvo registro y login, los endpoints exigen JWT y la política `SECURITY.*` correspondiente.
 
+## Entidades gubernamentales
+
+El catálogo inicial se carga desde `src/SB.BACKEND.Infrastructure/Data/Seed/ListaEntidadesGubernamentales.xlsx`.
+El inicializador valida las cuatro columnas, carga 181 entidades y omite nombres ya existentes —incluidos los eliminados— para no reactivarlos ni duplicarlos.
+
+- `GET /api/entidades-gubernamentales`: búsqueda, filtros, orden y paginación.
+- `GET /api/entidades-gubernamentales/{id}`
+- `POST /api/entidades-gubernamentales`
+- `PUT /api/entidades-gubernamentales/{id}`
+- `PATCH /api/entidades-gubernamentales/{id}/estado`
+- `DELETE /api/entidades-gubernamentales/{id}?rowVersion={base64}`
+- `GET /api/entidades-gubernamentales/eliminadas`
+- `PATCH /api/entidades-gubernamentales/{id}/restaurar?rowVersion={base64}`
+
+Los endpoints usan las políticas `GOVERNMENT_ENTITY.VIEW`, `CREATE`, `UPDATE`, `DELETE` y `RESTORE`.
+La eliminación es lógica y el filtro global de EF Core excluye registros eliminados. Las escrituras devuelven un `RowVersion` Base64 que debe enviarse en operaciones posteriores para detectar concurrencia optimista.
+
 ## Probar autenticación
 
 ```powershell

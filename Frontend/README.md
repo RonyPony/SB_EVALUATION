@@ -1,4 +1,19 @@
-# React + TypeScript + Vite
+# Plataforma de soporte SB
+
+## Configuración
+
+Copie `.env.example` a un archivo de ambiente y configure `VITE_API_URL` con el origen del backend. Desarrollo usa `http://localhost:5000` mediante `.env.development`. La URL se valida al cargar la aplicación.
+
+La sesión JWT se conserva una sola vez en `sessionStorage`, se valida contra `GET /api/auth/me` y se elimina al expirar, recibir `401` o cerrar sesión. El backend no implementa refresh token ni logout remoto.
+
+## Ejecución
+
+```sh
+npm install
+npm run dev
+```
+
+El backend debe estar ejecutándose en el origen configurado.
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

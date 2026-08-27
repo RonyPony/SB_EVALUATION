@@ -1,4 +1,4 @@
-# SB Evaluation — plataforma de soporte
+# SB Evaluation — plataforma de soporte - RONEL CRUZ C.
 
 Solución local compuesta por un API ASP.NET Core .NET 8 y un cliente React con TypeScript. El backend sigue Onion Architecture y separa Dominio, Aplicación, Servicios, Infraestructura y API.
 

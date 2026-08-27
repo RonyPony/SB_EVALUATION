@@ -6,6 +6,13 @@ namespace SB.BACKEND.Infrastructure.Persistence.Repositories;
 
 internal sealed class PermissionRepository(SecurityDbContext dbContext) : IPermissionRepository
 {
-    public async Task<IReadOnlyCollection<Permission>> GetAllAsync(CancellationToken ct) => await dbContext.Permissions.AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
-    public Task<Permission?> GetByIdAsync(Guid id, CancellationToken ct) => dbContext.Permissions.SingleOrDefaultAsync(x => x.Id == id, ct);
+    public async Task<IReadOnlyCollection<Permission>> GetAllAsync(CancellationToken ct)
+    {
+        return await dbContext.Permissions.AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
+    }
+
+    public Task<Permission?> GetByIdAsync(Guid id, CancellationToken ct)
+    {
+        return dbContext.Permissions.SingleOrDefaultAsync(x => x.Id == id, ct);
+    }
 }

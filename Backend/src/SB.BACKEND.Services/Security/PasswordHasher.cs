@@ -5,16 +5,22 @@ namespace SB.BACKEND.Services.Security;
 
 internal sealed class PasswordHasher : IPasswordHasher
 {
-    private const int Iterations = 210_000;
-    private const int SaltSize = 16;
-    private const int HashSize = 32;
+    private const int ITERATIONS = 210_000;
+    private const int SALT_SIZE = 16;
+    private const int HASH_SIZE = 32;
 
     public string Hash(string password)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(password);
-        var salt = RandomNumberGenerator.GetBytes(SaltSize);
-        var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, Iterations, HashAlgorithmName.SHA256, HashSize);
-        return $"PBKDF2-SHA256${Iterations}${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
+        var salt = RandomNumberGenerator.GetBytes(SALT_SIZE);
+        var hash = Rfc2898DeriveBytes.Pbkdf2(
+            password,
+            salt,
+            ITERATIONS,
+            HashAlgorithmName.SHA256,
+            HASH_SIZE
+        );
+        return $"PBKDF2-SHA256${ITERATIONS}${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
     }
 
     public bool Verify(string password, string passwordHash)
@@ -22,13 +28,23 @@ internal sealed class PasswordHasher : IPasswordHasher
         try
         {
             var parts = passwordHash.Split('$');
-            if (parts.Length != 4 || parts[0] != "PBKDF2-SHA256") return false;
+            if (parts.Length != 4 || parts[0] != "PBKDF2-SHA256")
+                return false;
             var iterations = int.Parse(parts[1]);
             var salt = Convert.FromBase64String(parts[2]);
             var expected = Convert.FromBase64String(parts[3]);
-            var actual = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, expected.Length);
+            var actual = Rfc2898DeriveBytes.Pbkdf2(
+                password,
+                salt,
+                iterations,
+                HashAlgorithmName.SHA256,
+                expected.Length
+            );
             return CryptographicOperations.FixedTimeEquals(actual, expected);
         }
-        catch (FormatException) { return false; }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 }

@@ -11,7 +11,7 @@ GET {{host}}/health
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
-{ "username": "demo", "password": "demo-password-not-real" }
+{ "username": "demo", "password": "demo" }
 
 ### Token returned by login
 @accessToken = paste-token-here

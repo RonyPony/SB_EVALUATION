@@ -1,20 +1,27 @@
 using SB.BACKEND.Api;
 using SB.BACKEND.Api.ExceptionHandling;
 using SB.BACKEND.Api.Services;
-using SB.BACKEND.Application.Common;
 using SB.BACKEND.Application;
+using SB.BACKEND.Application.Common;
 using SB.BACKEND.Infrastructure;
 using SB.BACKEND.Infrastructure.Persistence;
 using SB.BACKEND.Services;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
+builder.Host.UseSerilog(
+    (context, services, configuration) =>
+    {
+        configuration
+            .ReadFrom.Configuration(context.Configuration)
+            .ReadFrom.Services(services)
+            .Enrich.FromLogContext();
+    }
+);
 
-builder.Services
-    .AddApplication()
+builder
+    .Services.AddApplication()
     .AddInfrastructure(builder.Configuration)
     .AddServices(builder.Configuration);
 
@@ -27,8 +34,16 @@ builder.Services.AddHealthChecks();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
-    policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(
+        "Frontend",
+        policy =>
+        {
+            policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+        }
+    );
+});
 
 var app = builder.Build();
 
@@ -39,6 +54,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 }
 
 app.UseExceptionHandler();
+app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
 {

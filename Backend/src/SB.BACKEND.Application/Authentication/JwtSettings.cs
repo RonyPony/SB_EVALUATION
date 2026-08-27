@@ -1,7 +1,8 @@
 namespace SB.BACKEND.Application.Authentication;
+
 public sealed class JwtSettings
 {
-    public const string SectionName = "Jwt";
+    public const string SECTION_NAME = "Jwt";
     public string Issuer { get; init; } = string.Empty;
     public string Audience { get; init; } = string.Empty;
     public string SecretKey { get; init; } = string.Empty;

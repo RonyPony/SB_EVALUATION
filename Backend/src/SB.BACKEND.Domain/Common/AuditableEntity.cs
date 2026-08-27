@@ -10,11 +10,34 @@ public abstract class AuditableEntity : BaseEntity
     public byte[] RowVersion { get; private set; } = [];
 
     public void ApplyCreatedAudit(DateTimeOffset now, Guid? userId)
-    { CreatedAt = now.ToUniversalTime(); CreatedBy = userId; IsActive = true; IsDeleted = false; }
+    {
+        CreatedAt = now.ToUniversalTime();
+        CreatedBy = userId;
+        IsActive = true;
+        IsDeleted = false;
+    }
+
     public void ApplyUpdatedAudit(DateTimeOffset now, Guid? userId)
-    { UpdatedAt = now.ToUniversalTime(); UpdatedBy = userId; }
+    {
+        UpdatedAt = now.ToUniversalTime();
+        UpdatedBy = userId;
+    }
+
     protected void SoftDelete(DateTimeOffset now, Guid? userId)
-    { IsDeleted = true; IsActive = false; DeletedAt = now.ToUniversalTime(); DeletedBy = userId; ApplyUpdatedAudit(now, userId); }
+    {
+        IsDeleted = true;
+        IsActive = false;
+        DeletedAt = now.ToUniversalTime();
+        DeletedBy = userId;
+        ApplyUpdatedAudit(now, userId);
+    }
+
     protected void Restore(DateTimeOffset now, Guid? userId)
-    { IsDeleted = false; IsActive = true; DeletedAt = null; DeletedBy = null; ApplyUpdatedAudit(now, userId); }
+    {
+        IsDeleted = false;
+        IsActive = true;
+        DeletedAt = null;
+        DeletedBy = null;
+        ApplyUpdatedAudit(now, userId);
+    }
 }

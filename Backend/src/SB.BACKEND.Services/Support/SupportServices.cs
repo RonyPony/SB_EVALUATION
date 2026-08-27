@@ -3,69 +3,688 @@ using SB.BACKEND.Application.Security;
 using SB.BACKEND.Application.Support;
 using SB.BACKEND.Domain.Common;
 using SB.BACKEND.Domain.Support;
+
 namespace SB.BACKEND.Services.Support;
+
 internal static class SupportAccess
 {
-    public static bool Admin(ICurrentUserService u) => u.IsInRole("Admin", "Administrador");
-    public static bool Staff(ICurrentUserService u) => u.IsInRole("Admin", "Administrador", "Analista");
-    public static Guid User(ICurrentUserService u) => u.UserId ?? throw new ForbiddenException("Se requiere un usuario autenticado.");
-    public static void CanRead(SolicitudSoporte s, ICurrentUserService u) { var id = User(u); if (!Admin(u) && !(u.IsInRole("Analista") && (s.ResponsableId == id || s.ResponsableId is null)) && s.SolicitanteId != id) throw new ForbiddenException("No tiene acceso a esta solicitud."); }
-    public static string Clean(string? value, string field, int max) { var result = value?.Trim() ?? ""; if (result.Length == 0) throw new ValidationException($"{field} es obligatorio."); if (result.Length > max) throw new ValidationException($"{field} excede {max} caracteres."); return result; }
-    public static byte[] Version(string value) { try { return Convert.FromBase64String(value); } catch (FormatException) { throw new ValidationException("RowVersion debe ser Base64 válido."); } }
+    public static bool Admin(ICurrentUserService u)
+    {
+        return u.IsInRole("Admin", "Administrador");
+    }
+
+    public static bool Staff(ICurrentUserService u)
+    {
+        return u.IsInRole("Admin", "Administrador", "Analista");
+    }
+
+    public static Guid User(ICurrentUserService u)
+    {
+        return u.UserId ?? throw new ForbiddenException("Se requiere un usuario autenticado.");
+    }
+
+    public static void CanRead(SolicitudSoporte s, ICurrentUserService u)
+    {
+        var id = User(u);
+        if (
+            !Admin(u)
+            && !(u.IsInRole("Analista") && (s.ResponsableId == id || s.ResponsableId is null))
+            && s.SolicitanteId != id
+        )
+            throw new ForbiddenException("No tiene acceso a esta solicitud.");
+    }
+
+    public static string Clean(string? value, string field, int max)
+    {
+        var result = value?.Trim() ?? "";
+        if (result.Length == 0)
+            throw new ValidationException($"{field} es obligatorio.");
+        if (result.Length > max)
+            throw new ValidationException($"{field} excede {max} caracteres.");
+        return result;
+    }
+
+    public static byte[] Version(string value)
+    {
+        try
+        {
+            return Convert.FromBase64String(value);
+        }
+        catch (FormatException)
+        {
+            throw new ValidationException("RowVersion debe ser Base64 válido.");
+        }
+    }
 }
-internal sealed class AreaService(ISupportRepository repository, IUnitOfWork unitOfWork, ICurrentUserService currentUser) : IAreaService
+
+internal sealed class AreaService(
+    ISupportRepository repository,
+    IUnitOfWork unitOfWork,
+    ICurrentUserService currentUser
+) : IAreaService
 {
-    public Task<IReadOnlyCollection<AreaResponse>> GetAllAsync(bool activeOnly, CancellationToken ct) => Get(activeOnly, ct);
-    private async Task<IReadOnlyCollection<AreaResponse>> Get(bool activeOnly, CancellationToken ct) => (await repository.GetAreasAsync(activeOnly, ct)).Select(Map).ToArray();
-    public async Task<AreaResponse> GetByIdAsync(Guid id, CancellationToken ct) => Map(await Find(id, ct));
+    public Task<IReadOnlyCollection<AreaResponse>> GetAllAsync(
+        bool activeOnly,
+        CancellationToken ct
+    )
+    {
+        return Get(activeOnly, ct);
+    }
+
+    private async Task<IReadOnlyCollection<AreaResponse>> Get(bool activeOnly, CancellationToken ct)
+    {
+        return [.. (await repository.GetAreasAsync(activeOnly, ct)).Select(Map)];
+    }
+
+    public async Task<AreaResponse> GetByIdAsync(Guid id, CancellationToken ct)
+    {
+        return Map(await Find(id, ct));
+    }
+
     public async Task<AreaResponse> CreateAsync(CreateAreaRequest request, CancellationToken ct)
-    { var name = SupportAccess.Clean(request.Nombre, "Nombre", 120); var normalized = Normalize(name); if (await repository.AreaNameExistsAsync(normalized, null, ct)) throw new ConflictException("Ya existe un área con ese nombre."); var area = new Area(name, normalized, request.Descripcion?.Trim()); repository.AddArea(area); await unitOfWork.SaveChangesAsync(ct); return Map(area); }
-    public async Task<AreaResponse> UpdateAsync(Guid id, UpdateAreaRequest request, CancellationToken ct)
-    { var area = await Find(id, ct); var name = SupportAccess.Clean(request.Nombre, "Nombre", 120); var normalized = Normalize(name); if (await repository.AreaNameExistsAsync(normalized, id, ct)) throw new ConflictException("Ya existe un área con ese nombre."); repository.SetVersion(area, SupportAccess.Version(request.RowVersion)); area.Actualizar(name, normalized, request.Descripcion?.Trim()); await unitOfWork.SaveChangesAsync(ct); return Map(area); }
-    public async Task ChangeStatusAsync(Guid id, ChangeAreaStatusRequest request, CancellationToken ct) { var area = await Find(id, ct); if (area.IsActive == request.Activo) throw new ValidationException("El área ya tiene el estado solicitado."); repository.SetVersion(area, SupportAccess.Version(request.RowVersion)); area.CambiarEstado(request.Activo); await unitOfWork.SaveChangesAsync(ct); }
-    public async Task DeleteAsync(Guid id, string version, CancellationToken ct) { var area = await Find(id, ct); repository.SetVersion(area, SupportAccess.Version(version)); area.Eliminar(DateTimeOffset.UtcNow, currentUser.UserId); await unitOfWork.SaveChangesAsync(ct); }
-    private async Task<Area> Find(Guid id, CancellationToken ct) => id == Guid.Empty ? throw new ValidationException("Identificador inválido.") : await repository.GetAreaAsync(id, ct) ?? throw new NotFoundException("Área no encontrada.");
-    private static string Normalize(string value) => string.Join(' ', value.Split(' ', StringSplitOptions.RemoveEmptyEntries)).ToUpperInvariant();
-    private static AreaResponse Map(Area x) => new(x.Id, x.Nombre, x.Descripcion, x.IsActive, Convert.ToBase64String(x.RowVersion));
+    {
+        var name = SupportAccess.Clean(request.Nombre, "Nombre", 120);
+        var normalized = Normalize(name);
+        if (await repository.AreaNameExistsAsync(normalized, null, ct))
+            throw new ConflictException("Ya existe un área con ese nombre.");
+        var area = new Area(name, normalized, request.Descripcion?.Trim());
+        repository.AddArea(area);
+        await unitOfWork.SaveChangesAsync(ct);
+        return Map(area);
+    }
+
+    public async Task<AreaResponse> UpdateAsync(
+        Guid id,
+        UpdateAreaRequest request,
+        CancellationToken ct
+    )
+    {
+        var area = await Find(id, ct);
+        var name = SupportAccess.Clean(request.Nombre, "Nombre", 120);
+        var normalized = Normalize(name);
+        if (await repository.AreaNameExistsAsync(normalized, id, ct))
+            throw new ConflictException("Ya existe un área con ese nombre.");
+        repository.SetVersion(area, SupportAccess.Version(request.RowVersion));
+        area.Actualizar(name, normalized, request.Descripcion?.Trim());
+        await unitOfWork.SaveChangesAsync(ct);
+        return Map(area);
+    }
+
+    public async Task ChangeStatusAsync(
+        Guid id,
+        ChangeAreaStatusRequest request,
+        CancellationToken ct
+    )
+    {
+        var area = await Find(id, ct);
+        if (area.IsActive == request.Activo)
+            throw new ValidationException("El área ya tiene el estado solicitado.");
+        repository.SetVersion(area, SupportAccess.Version(request.RowVersion));
+        area.CambiarEstado(request.Activo);
+        await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    public async Task DeleteAsync(Guid id, string version, CancellationToken ct)
+    {
+        var area = await Find(id, ct);
+        repository.SetVersion(area, SupportAccess.Version(version));
+        area.Eliminar(DateTimeOffset.UtcNow, currentUser.UserId);
+        await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    private async Task<Area> Find(Guid id, CancellationToken ct)
+    {
+        return id == Guid.Empty
+            ? throw new ValidationException("Identificador inválido.")
+            : await repository.GetAreaAsync(id, ct)
+                ?? throw new NotFoundException("Área no encontrada.");
+    }
+
+    private static string Normalize(string value)
+    {
+        return string.Join(' ', value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            .ToUpperInvariant();
+    }
+
+    private static AreaResponse Map(Area x)
+    {
+        return new(x.Id, x.Nombre, x.Descripcion, x.IsActive, Convert.ToBase64String(x.RowVersion));
+    }
 }
+
 internal sealed class NotificationService(ISupportRepository repository) : INotificationService
-{ public void Add(Guid userId, Guid requestId, TipoNotificacion type, string title, string message) => repository.AddNotification(new Notificacion(userId, requestId, type, title, message)); }
-internal sealed class SolicitudService(ISupportRepository repository, IUnitOfWork unitOfWork, ICurrentUserService currentUser, INotificationService notifications) : ISolicitudService
+{
+    public void Add(
+        Guid userId,
+        Guid requestId,
+        TipoNotificacion type,
+        string title,
+        string message
+    )
+    {
+        repository.AddNotification(new Notificacion(userId, requestId, type, title, message));
+    }
+}
+
+internal sealed class SolicitudService(
+    ISupportRepository repository,
+    IUnitOfWork unitOfWork,
+    ICurrentUserService currentUser,
+    INotificationService notifications
+) : ISolicitudService
 {
     public async Task<SolicitudResponse> CreateAsync(CreateSolicitudRequest r, CancellationToken ct)
-    { var user = SupportAccess.User(currentUser); var area = await repository.GetAreaAsync(r.AreaId, ct) ?? throw new NotFoundException("Área no encontrada."); if (!area.IsActive) throw new ValidationException("El área no está activa."); ValidateDates(r.FechaCompromiso); var entity = new SolicitudSoporte(await repository.NextCodeAsync(ct), SupportAccess.Clean(r.Titulo,"Título",200), SupportAccess.Clean(r.Descripcion,"Descripción",4000), r.Tipo, r.Prioridad, area.Id, user, Evidence(r.ReferenciaEvidencia), r.FechaCompromiso); repository.AddSolicitud(entity); notifications.Add(user, entity.Id, TipoNotificacion.Creacion, "Solicitud registrada", $"La solicitud {entity.Codigo} fue registrada."); await unitOfWork.SaveChangesAsync(ct); return await MapLoaded(entity.Id, ct); }
-    public async Task<PagedResult<SolicitudResponse>> GetAllAsync(SolicitudListQuery q, CancellationToken ct) { var user = SupportAccess.User(currentUser); if (q.CreadaDesde > q.CreadaHasta || q.CompromisoDesde > q.CompromisoHasta) throw new ValidationException("El rango de fechas no es válido."); var (items,total)=await repository.GetSolicitudesAsync(q,user,currentUser.Roles,ct); return new(items.Select(Map).ToArray(),q.PageNumber,q.PageSize,total); }
-    public async Task<SolicitudResponse> GetByIdAsync(Guid id, CancellationToken ct) { var entity=await Find(id,ct); SupportAccess.CanRead(entity,currentUser); return Map(entity); }
-    public async Task<SolicitudResponse> UpdateAsync(Guid id, UpdateSolicitudRequest r, CancellationToken ct)
-    { var e=await Find(id,ct); SupportAccess.CanRead(e,currentUser); if (!SupportAccess.Staff(currentUser) && e.SolicitanteId != SupportAccess.User(currentUser)) throw new ForbiddenException("No puede modificar la solicitud."); var area=await repository.GetAreaAsync(r.AreaId,ct)??throw new NotFoundException("Área no encontrada."); if(!area.IsActive) throw new ValidationException("El área no está activa."); repository.SetVersion(e,SupportAccess.Version(r.RowVersion)); try { e.Editar(SupportAccess.Clean(r.Titulo,"Título",200),SupportAccess.Clean(r.Descripcion,"Descripción",4000),r.Tipo,r.AreaId,Evidence(r.ReferenciaEvidencia),r.FechaCompromiso); } catch(InvalidOperationException){throw new ConflictException("La solicitud no admite modificaciones en su estado actual.");} await unitOfWork.SaveChangesAsync(ct); return await MapLoaded(id,ct); }
-    public async Task<SolicitudResponse> PatchAsync(Guid id, PatchSolicitudRequest r, CancellationToken ct)
-    { var e=await Find(id,ct); SupportAccess.CanRead(e,currentUser); var areaId=r.AreaId??e.AreaId; var area=await repository.GetAreaAsync(areaId,ct)??throw new NotFoundException("Área no encontrada."); if(!area.IsActive)throw new ValidationException("El área no está activa."); Version(e,r.RowVersion); try{e.Editar(r.Titulo is null?e.Titulo:SupportAccess.Clean(r.Titulo,"Título",200),r.Descripcion is null?e.Descripcion:SupportAccess.Clean(r.Descripcion,"Descripción",4000),r.Tipo??e.Tipo,areaId,r.ReferenciaEvidencia is null?e.ReferenciaEvidencia:Evidence(r.ReferenciaEvidencia),e.FechaCompromiso);}catch(InvalidOperationException){throw new ConflictException("La solicitud no admite modificaciones en su estado actual.");}await unitOfWork.SaveChangesAsync(ct);return await MapLoaded(id,ct);}
-    public async Task ChangePriorityAsync(Guid id, ChangePriorityRequest r, CancellationToken ct) { RequireStaff(); var e=await Find(id,ct); Version(e,r.RowVersion); try{e.CambiarPrioridad(r.Prioridad);}catch(InvalidOperationException){throw new ConflictException("No se puede cambiar la prioridad.");} await unitOfWork.SaveChangesAsync(ct); }
-    public async Task AssignAsync(Guid id, AssignSolicitudRequest r, CancellationToken ct) { RequireStaff(); if(!await repository.IsEligibleResponsibleAsync(r.ResponsableId,ct)) throw new ValidationException("El responsable no es un analista activo."); var e=await Find(id,ct); Version(e,r.RowVersion); Guid? previous; try{previous=e.Asignar(r.ResponsableId,SupportAccess.User(currentUser),DateTimeOffset.UtcNow);repository.AddHistory(e.Historial.Last());}catch(InvalidOperationException){throw new ConflictException("No se puede asignar la solicitud.");} notifications.Add(r.ResponsableId,e.Id,previous.HasValue?TipoNotificacion.Reasignacion:TipoNotificacion.Asignacion,"Solicitud asignada",$"Se le asignó la solicitud {e.Codigo}."); await unitOfWork.SaveChangesAsync(ct); }
-    public async Task ChangeStatusAsync(Guid id, ChangeSolicitudStatusRequest r, CancellationToken ct) { RequireStaff(); var e=await Find(id,ct); Version(e,r.RowVersion); var comment=SupportAccess.Clean(r.Comentario,"Comentario",1000); try { if(r.Estado==EstadoSolicitud.Resuelta)e.RegistrarResolucion(SupportAccess.Clean(r.ComentarioResolucion,"Comentario de resolución",2000)); e.CambiarEstado(r.Estado,comment,SupportAccess.User(currentUser),DateTimeOffset.UtcNow); repository.AddHistory(e.Historial.Last()); } catch(InvalidOperationException){throw new ConflictException("La transición de estado no está permitida.");} notifications.Add(e.SolicitanteId,e.Id,r.Estado==EstadoSolicitud.Cerrada?TipoNotificacion.Cierre:r.Estado==EstadoSolicitud.Resuelta?TipoNotificacion.Resolucion:TipoNotificacion.CambioEstado,"Estado actualizado",$"La solicitud {e.Codigo} cambió a {r.Estado}."); await unitOfWork.SaveChangesAsync(ct); }
-    public async Task ReopenAsync(Guid id, ReopenSolicitudRequest r, CancellationToken ct) { var e=await Find(id,ct); if(!SupportAccess.Staff(currentUser))throw new ForbiddenException("No puede reabrir esta solicitud."); Version(e,r.RowVersion); try{e.Reabrir(SupportAccess.Clean(r.Comentario,"Comentario",1000),SupportAccess.User(currentUser),DateTimeOffset.UtcNow);repository.AddHistory(e.Historial.Last());}catch(InvalidOperationException){throw new ConflictException("Solo pueden reabrirse solicitudes cerradas.");} if(e.ResponsableId.HasValue)notifications.Add(e.ResponsableId.Value,e.Id,TipoNotificacion.Reapertura,"Solicitud reabierta",$"La solicitud {e.Codigo} fue reabierta."); await unitOfWork.SaveChangesAsync(ct); }
-    public async Task DeleteAsync(Guid id,string version,CancellationToken ct) { if(!SupportAccess.Admin(currentUser))throw new ForbiddenException("Solo un administrador puede eliminar solicitudes."); var e=await Find(id,ct); Version(e,version); e.Eliminar(DateTimeOffset.UtcNow,currentUser.UserId); await unitOfWork.SaveChangesAsync(ct); }
-    public async Task<IReadOnlyCollection<HistorialResponse>> GetHistoryAsync(Guid id,CancellationToken ct) { var e=await Find(id,ct); SupportAccess.CanRead(e,currentUser); return (await repository.GetHistoryAsync(id,ct)).Select(x=>new HistorialResponse(x.Id,x.EstadoAnterior,x.EstadoNuevo,x.Comentario,x.UsuarioId,x.CreatedAt)).ToArray(); }
-    public async Task<IReadOnlyCollection<ComentarioResponse>> GetCommentsAsync(Guid id,CancellationToken ct) { var e=await Find(id,ct); SupportAccess.CanRead(e,currentUser); return (await repository.GetCommentsAsync(id,SupportAccess.Staff(currentUser),ct)).Select(MapComment).ToArray(); }
-    public async Task<ComentarioResponse> AddCommentAsync(Guid id,AddCommentRequest r,CancellationToken ct) { var e=await Find(id,ct); SupportAccess.CanRead(e,currentUser); if(r.EsInterno&&!SupportAccess.Staff(currentUser))throw new ForbiddenException("Solo el personal de soporte puede crear comentarios internos."); var c=new ComentarioSolicitud(id,SupportAccess.User(currentUser),SupportAccess.Clean(r.Contenido,"Contenido",2000),r.EsInterno); repository.AddComment(c); if(!r.EsInterno){var recipient=e.SolicitanteId==SupportAccess.User(currentUser)?e.ResponsableId:e.SolicitanteId;if(recipient.HasValue)notifications.Add(recipient.Value,e.Id,TipoNotificacion.Comentario,"Nuevo comentario",$"La solicitud {e.Codigo} tiene un nuevo comentario.");} await unitOfWork.SaveChangesAsync(ct); return MapComment(c); }
-    public async Task<ComentarioResponse> UpdateCommentAsync(Guid id,Guid commentId,UpdateCommentRequest r,CancellationToken ct){var e=await Find(id,ct);SupportAccess.CanRead(e,currentUser);var c=await repository.GetCommentAsync(id,commentId,ct)??throw new NotFoundException("Comentario no encontrado.");if(c.UsuarioId!=SupportAccess.User(currentUser)&&!SupportAccess.Admin(currentUser))throw new ForbiddenException("No puede modificar este comentario.");if(c.EsInterno&&!SupportAccess.Staff(currentUser))throw new ForbiddenException("No puede modificar comentarios internos.");Version(c,r.RowVersion);c.Editar(SupportAccess.Clean(r.Contenido,"Contenido",2000));await unitOfWork.SaveChangesAsync(ct);return MapComment(c);}
-    public async Task DeleteCommentAsync(Guid id,Guid commentId,string version,CancellationToken ct){var e=await Find(id,ct);SupportAccess.CanRead(e,currentUser);var c=await repository.GetCommentAsync(id,commentId,ct)??throw new NotFoundException("Comentario no encontrado.");if(c.UsuarioId!=SupportAccess.User(currentUser)&&!SupportAccess.Admin(currentUser))throw new ForbiddenException("No puede eliminar este comentario.");Version(c,version);c.Eliminar(DateTimeOffset.UtcNow,currentUser.UserId);await unitOfWork.SaveChangesAsync(ct);}
-    private void RequireStaff(){if(!SupportAccess.Staff(currentUser))throw new ForbiddenException("La operación requiere personal de soporte.");}
-    private void Version(AuditableEntity e,string value)=>repository.SetVersion(e,SupportAccess.Version(value));
-    private async Task<SolicitudSoporte> Find(Guid id,CancellationToken ct)=>id==Guid.Empty?throw new ValidationException("Identificador inválido."):await repository.GetSolicitudAsync(id,ct)??throw new NotFoundException("Solicitud no encontrada.");
-    private async Task<SolicitudResponse> MapLoaded(Guid id,CancellationToken ct)=>Map(await Find(id,ct));
-    private static string? Evidence(string? value){if(string.IsNullOrWhiteSpace(value))return null;var v=value.Trim();if(v.Length>1000)throw new ValidationException("La referencia de evidencia excede 1000 caracteres.");if(Uri.TryCreate(v,UriKind.Absolute,out var uri)&&uri.Scheme is not("http" or "https"))throw new ValidationException("La referencia de evidencia debe usar HTTP o HTTPS.");return v;}
-    private static void ValidateDates(DateTimeOffset? commitment){if(commitment.HasValue&&commitment.Value<DateTimeOffset.UtcNow.AddMinutes(-1))throw new ValidationException("La fecha de compromiso no puede estar en el pasado.");}
-    private static SolicitudResponse Map(SolicitudSoporte x)=>new(x.Id,x.Codigo,x.Titulo,x.Descripcion,x.Tipo,x.Prioridad,x.Estado,x.AreaId,x.Area.Nombre,x.SolicitanteId,x.ResponsableId,x.Responsable?.Username,x.ReferenciaEvidencia,x.FechaCompromiso,x.CreatedAt,x.UpdatedAt,Convert.ToBase64String(x.RowVersion));
-    private static ComentarioResponse MapComment(ComentarioSolicitud x)=>new(x.Id,x.UsuarioId,x.Contenido,x.EsInterno,x.CreatedAt,x.UpdatedAt,Convert.ToBase64String(x.RowVersion));
+    {
+        var user = SupportAccess.User(currentUser);
+        var area =
+            await repository.GetAreaAsync(r.AreaId, ct)
+            ?? throw new NotFoundException("Área no encontrada.");
+        if (!area.IsActive)
+            throw new ValidationException("El área no está activa.");
+        ValidateDates(r.FechaCompromiso);
+        var entity = new SolicitudSoporte(
+            await repository.NextCodeAsync(ct),
+            SupportAccess.Clean(r.Titulo, "Título", 200),
+            SupportAccess.Clean(r.Descripcion, "Descripción", 4000),
+            r.Tipo,
+            r.Prioridad,
+            area.Id,
+            user,
+            Evidence(r.ReferenciaEvidencia),
+            r.FechaCompromiso
+        );
+        repository.AddSolicitud(entity);
+        notifications.Add(
+            user,
+            entity.Id,
+            TipoNotificacion.Creacion,
+            "Solicitud registrada",
+            $"La solicitud {entity.Codigo} fue registrada."
+        );
+        await unitOfWork.SaveChangesAsync(ct);
+        return await MapLoaded(entity.Id, ct);
+    }
+
+    public async Task<PagedResult<SolicitudResponse>> GetAllAsync(
+        SolicitudListQuery q,
+        CancellationToken ct
+    )
+    {
+        var user = SupportAccess.User(currentUser);
+        if (q.CreadaDesde > q.CreadaHasta || q.CompromisoDesde > q.CompromisoHasta)
+            throw new ValidationException("El rango de fechas no es válido.");
+        var (items, total) = await repository.GetSolicitudesAsync(q, user, currentUser.Roles, ct);
+        return new([.. items.Select(Map)], q.PageNumber, q.PageSize, total);
+    }
+
+    public async Task<SolicitudResponse> GetByIdAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await Find(id, ct);
+        SupportAccess.CanRead(entity, currentUser);
+        return Map(entity);
+    }
+
+    public async Task<SolicitudResponse> UpdateAsync(
+        Guid id,
+        UpdateSolicitudRequest r,
+        CancellationToken ct
+    )
+    {
+        var e = await Find(id, ct);
+        SupportAccess.CanRead(e, currentUser);
+        if (!SupportAccess.Staff(currentUser) && e.SolicitanteId != SupportAccess.User(currentUser))
+            throw new ForbiddenException("No puede modificar la solicitud.");
+        var area =
+            await repository.GetAreaAsync(r.AreaId, ct)
+            ?? throw new NotFoundException("Área no encontrada.");
+        if (!area.IsActive)
+            throw new ValidationException("El área no está activa.");
+        repository.SetVersion(e, SupportAccess.Version(r.RowVersion));
+        try
+        {
+            e.Editar(
+                SupportAccess.Clean(r.Titulo, "Título", 200),
+                SupportAccess.Clean(r.Descripcion, "Descripción", 4000),
+                r.Tipo,
+                r.AreaId,
+                Evidence(r.ReferenciaEvidencia),
+                r.FechaCompromiso
+            );
+        }
+        catch (InvalidOperationException)
+        {
+            throw new ConflictException(
+                "La solicitud no admite modificaciones en su estado actual."
+            );
+        }
+        await unitOfWork.SaveChangesAsync(ct);
+        return await MapLoaded(id, ct);
+    }
+
+    public async Task<SolicitudResponse> PatchAsync(
+        Guid id,
+        PatchSolicitudRequest r,
+        CancellationToken ct
+    )
+    {
+        var e = await Find(id, ct);
+        SupportAccess.CanRead(e, currentUser);
+        var areaId = r.AreaId ?? e.AreaId;
+        var area =
+            await repository.GetAreaAsync(areaId, ct)
+            ?? throw new NotFoundException("Área no encontrada.");
+        if (!area.IsActive)
+            throw new ValidationException("El área no está activa.");
+        Version(e, r.RowVersion);
+        try
+        {
+            e.Editar(
+                r.Titulo is null ? e.Titulo : SupportAccess.Clean(r.Titulo, "Título", 200),
+                r.Descripcion is null
+                    ? e.Descripcion
+                    : SupportAccess.Clean(r.Descripcion, "Descripción", 4000),
+                r.Tipo ?? e.Tipo,
+                areaId,
+                r.ReferenciaEvidencia is null
+                    ? e.ReferenciaEvidencia
+                    : Evidence(r.ReferenciaEvidencia),
+                e.FechaCompromiso
+            );
+        }
+        catch (InvalidOperationException)
+        {
+            throw new ConflictException(
+                "La solicitud no admite modificaciones en su estado actual."
+            );
+        }
+        await unitOfWork.SaveChangesAsync(ct);
+        return await MapLoaded(id, ct);
+    }
+
+    public async Task ChangePriorityAsync(Guid id, ChangePriorityRequest r, CancellationToken ct)
+    {
+        RequireStaff();
+        var e = await Find(id, ct);
+        Version(e, r.RowVersion);
+        try
+        {
+            e.CambiarPrioridad(r.Prioridad);
+        }
+        catch (InvalidOperationException)
+        {
+            throw new ConflictException("No se puede cambiar la prioridad.");
+        }
+        await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    public async Task AssignAsync(Guid id, AssignSolicitudRequest r, CancellationToken ct)
+    {
+        RequireStaff();
+        if (!await repository.IsEligibleResponsibleAsync(r.ResponsableId, ct))
+            throw new ValidationException("El responsable no es un analista activo.");
+        var e = await Find(id, ct);
+        Version(e, r.RowVersion);
+        Guid? previous;
+        try
+        {
+            previous = e.Asignar(
+                r.ResponsableId,
+                SupportAccess.User(currentUser),
+                DateTimeOffset.UtcNow
+            );
+            repository.AddHistory(e.Historial.Last());
+        }
+        catch (InvalidOperationException)
+        {
+            throw new ConflictException("No se puede asignar la solicitud.");
+        }
+        notifications.Add(
+            r.ResponsableId,
+            e.Id,
+            previous.HasValue ? TipoNotificacion.Reasignacion : TipoNotificacion.Asignacion,
+            "Solicitud asignada",
+            $"Se le asignó la solicitud {e.Codigo}."
+        );
+        await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    public async Task ChangeStatusAsync(
+        Guid id,
+        ChangeSolicitudStatusRequest r,
+        CancellationToken ct
+    )
+    {
+        RequireStaff();
+        var e = await Find(id, ct);
+        Version(e, r.RowVersion);
+        var comment = SupportAccess.Clean(r.Comentario, "Comentario", 1000);
+        try
+        {
+            if (r.Estado == EstadoSolicitud.Resuelta)
+                e.RegistrarResolucion(
+                    SupportAccess.Clean(r.ComentarioResolucion, "Comentario de resolución", 2000)
+                );
+            e.CambiarEstado(
+                r.Estado,
+                comment,
+                SupportAccess.User(currentUser),
+                DateTimeOffset.UtcNow
+            );
+            repository.AddHistory(e.Historial.Last());
+        }
+        catch (InvalidOperationException)
+        {
+            throw new ConflictException("La transición de estado no está permitida.");
+        }
+        notifications.Add(
+            e.SolicitanteId,
+            e.Id,
+            r.Estado == EstadoSolicitud.Cerrada ? TipoNotificacion.Cierre
+                : r.Estado == EstadoSolicitud.Resuelta ? TipoNotificacion.Resolucion
+                : TipoNotificacion.CambioEstado,
+            "Estado actualizado",
+            $"La solicitud {e.Codigo} cambió a {r.Estado}."
+        );
+        await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    public async Task ReopenAsync(Guid id, ReopenSolicitudRequest r, CancellationToken ct)
+    {
+        var e = await Find(id, ct);
+        if (!SupportAccess.Staff(currentUser))
+            throw new ForbiddenException("No puede reabrir esta solicitud.");
+        Version(e, r.RowVersion);
+        try
+        {
+            e.Reabrir(
+                SupportAccess.Clean(r.Comentario, "Comentario", 1000),
+                SupportAccess.User(currentUser),
+                DateTimeOffset.UtcNow
+            );
+            repository.AddHistory(e.Historial.Last());
+        }
+        catch (InvalidOperationException)
+        {
+            throw new ConflictException("Solo pueden reabrirse solicitudes cerradas.");
+        }
+        if (e.ResponsableId.HasValue)
+            notifications.Add(
+                e.ResponsableId.Value,
+                e.Id,
+                TipoNotificacion.Reapertura,
+                "Solicitud reabierta",
+                $"La solicitud {e.Codigo} fue reabierta."
+            );
+        await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    public async Task DeleteAsync(Guid id, string version, CancellationToken ct)
+    {
+        if (!SupportAccess.Admin(currentUser))
+            throw new ForbiddenException("Solo un administrador puede eliminar solicitudes.");
+        var e = await Find(id, ct);
+        Version(e, version);
+        e.Eliminar(DateTimeOffset.UtcNow, currentUser.UserId);
+        await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyCollection<HistorialResponse>> GetHistoryAsync(
+        Guid id,
+        CancellationToken ct
+    )
+    {
+        var e = await Find(id, ct);
+        SupportAccess.CanRead(e, currentUser);
+        return
+        [
+            .. (await repository.GetHistoryAsync(id, ct)).Select(x =>
+            {
+                return new HistorialResponse(
+                    x.Id,
+                    x.EstadoAnterior,
+                    x.EstadoNuevo,
+                    x.Comentario,
+                    x.UsuarioId,
+                    x.CreatedAt
+                );
+            }),
+        ];
+    }
+
+    public async Task<IReadOnlyCollection<ComentarioResponse>> GetCommentsAsync(
+        Guid id,
+        CancellationToken ct
+    )
+    {
+        var e = await Find(id, ct);
+        SupportAccess.CanRead(e, currentUser);
+        return
+        [
+            .. (await repository.GetCommentsAsync(id, SupportAccess.Staff(currentUser), ct)).Select(
+                MapComment
+            ),
+        ];
+    }
+
+    public async Task<ComentarioResponse> AddCommentAsync(
+        Guid id,
+        AddCommentRequest r,
+        CancellationToken ct
+    )
+    {
+        var e = await Find(id, ct);
+        SupportAccess.CanRead(e, currentUser);
+        if (r.EsInterno && !SupportAccess.Staff(currentUser))
+            throw new ForbiddenException(
+                "Solo el personal de soporte puede crear comentarios internos."
+            );
+        var c = new ComentarioSolicitud(
+            id,
+            SupportAccess.User(currentUser),
+            SupportAccess.Clean(r.Contenido, "Contenido", 2000),
+            r.EsInterno
+        );
+        repository.AddComment(c);
+        if (!r.EsInterno)
+        {
+            var recipient =
+                e.SolicitanteId == SupportAccess.User(currentUser)
+                    ? e.ResponsableId
+                    : e.SolicitanteId;
+            if (recipient.HasValue)
+                notifications.Add(
+                    recipient.Value,
+                    e.Id,
+                    TipoNotificacion.Comentario,
+                    "Nuevo comentario",
+                    $"La solicitud {e.Codigo} tiene un nuevo comentario."
+                );
+        }
+        await unitOfWork.SaveChangesAsync(ct);
+        return MapComment(c);
+    }
+
+    public async Task<ComentarioResponse> UpdateCommentAsync(
+        Guid id,
+        Guid commentId,
+        UpdateCommentRequest r,
+        CancellationToken ct
+    )
+    {
+        var e = await Find(id, ct);
+        SupportAccess.CanRead(e, currentUser);
+        var c =
+            await repository.GetCommentAsync(id, commentId, ct)
+            ?? throw new NotFoundException("Comentario no encontrado.");
+        if (c.UsuarioId != SupportAccess.User(currentUser) && !SupportAccess.Admin(currentUser))
+            throw new ForbiddenException("No puede modificar este comentario.");
+        if (c.EsInterno && !SupportAccess.Staff(currentUser))
+            throw new ForbiddenException("No puede modificar comentarios internos.");
+        Version(c, r.RowVersion);
+        c.Editar(SupportAccess.Clean(r.Contenido, "Contenido", 2000));
+        await unitOfWork.SaveChangesAsync(ct);
+        return MapComment(c);
+    }
+
+    public async Task DeleteCommentAsync(
+        Guid id,
+        Guid commentId,
+        string version,
+        CancellationToken ct
+    )
+    {
+        var e = await Find(id, ct);
+        SupportAccess.CanRead(e, currentUser);
+        var c =
+            await repository.GetCommentAsync(id, commentId, ct)
+            ?? throw new NotFoundException("Comentario no encontrado.");
+        if (c.UsuarioId != SupportAccess.User(currentUser) && !SupportAccess.Admin(currentUser))
+            throw new ForbiddenException("No puede eliminar este comentario.");
+        Version(c, version);
+        c.Eliminar(DateTimeOffset.UtcNow, currentUser.UserId);
+        await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    private void RequireStaff()
+    {
+        if (!SupportAccess.Staff(currentUser))
+            throw new ForbiddenException("La operación requiere personal de soporte.");
+    }
+
+    private void Version(AuditableEntity e, string value)
+    {
+        repository.SetVersion(e, SupportAccess.Version(value));
+    }
+
+    private async Task<SolicitudSoporte> Find(Guid id, CancellationToken ct)
+    {
+        return id == Guid.Empty
+            ? throw new ValidationException("Identificador inválido.")
+            : await repository.GetSolicitudAsync(id, ct)
+                ?? throw new NotFoundException("Solicitud no encontrada.");
+    }
+
+    private async Task<SolicitudResponse> MapLoaded(Guid id, CancellationToken ct)
+    {
+        return Map(await Find(id, ct));
+    }
+
+    private static string? Evidence(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        var v = value.Trim();
+        if (v.Length > 1000)
+            throw new ValidationException("La referencia de evidencia excede 1000 caracteres.");
+        if (
+            Uri.TryCreate(v, UriKind.Absolute, out var uri) && uri.Scheme is not ("http" or "https")
+        )
+            throw new ValidationException("La referencia de evidencia debe usar HTTP o HTTPS.");
+        return v;
+    }
+
+    private static void ValidateDates(DateTimeOffset? commitment)
+    {
+        if (commitment.HasValue && commitment.Value < DateTimeOffset.UtcNow.AddMinutes(-1))
+            throw new ValidationException("La fecha de compromiso no puede estar en el pasado.");
+    }
+
+    private static SolicitudResponse Map(SolicitudSoporte x)
+    {
+        return new(
+            x.Id,
+            x.Codigo,
+            x.Titulo,
+            x.Descripcion,
+            x.Tipo,
+            x.Prioridad,
+            x.Estado,
+            x.AreaId,
+            x.Area.Nombre,
+            x.SolicitanteId,
+            x.ResponsableId,
+            x.Responsable?.Username,
+            x.ReferenciaEvidencia,
+            x.FechaCompromiso,
+            x.CreatedAt,
+            x.UpdatedAt,
+            Convert.ToBase64String(x.RowVersion)
+        );
+    }
+
+    private static ComentarioResponse MapComment(ComentarioSolicitud x)
+    {
+        return new(
+            x.Id,
+            x.UsuarioId,
+            x.Contenido,
+            x.EsInterno,
+            x.CreatedAt,
+            x.UpdatedAt,
+            Convert.ToBase64String(x.RowVersion)
+        );
+    }
 }
-internal sealed class NotificationApplicationService(ISupportRepository repository,IUnitOfWork unitOfWork,ICurrentUserService currentUser):INotificationApplicationService
+
+internal sealed class NotificationApplicationService(
+    ISupportRepository repository,
+    IUnitOfWork unitOfWork,
+    ICurrentUserService currentUser
+) : INotificationApplicationService
 {
-    public async Task<IReadOnlyCollection<NotificacionResponse>> GetMineAsync(CancellationToken ct)=>(await repository.GetNotificationsAsync(SupportAccess.User(currentUser),ct)).Select(Map).ToArray();
-    public Task<int> UnreadCountAsync(CancellationToken ct)=>repository.UnreadCountAsync(SupportAccess.User(currentUser),ct);
-    public async Task MarkReadAsync(Guid id,CancellationToken ct){var n=await repository.GetNotificationAsync(id,SupportAccess.User(currentUser),ct)??throw new NotFoundException("Notificación no encontrada.");n.MarcarLeida(DateTimeOffset.UtcNow);await unitOfWork.SaveChangesAsync(ct);}
-    public async Task MarkAllReadAsync(CancellationToken ct){foreach(var n in await repository.GetUnreadAsync(SupportAccess.User(currentUser),ct))n.MarcarLeida(DateTimeOffset.UtcNow);await unitOfWork.SaveChangesAsync(ct);}
-    private static NotificacionResponse Map(Notificacion x)=>new(x.Id,x.SolicitudId,x.Tipo,x.Titulo,x.Mensaje,x.Leida,x.FechaLectura,x.CreatedAt);
+    public async Task<IReadOnlyCollection<NotificacionResponse>> GetMineAsync(CancellationToken ct)
+    {
+        return
+        [
+            .. (await repository.GetNotificationsAsync(SupportAccess.User(currentUser), ct)).Select(
+                Map
+            ),
+        ];
+    }
+
+    public Task<int> UnreadCountAsync(CancellationToken ct)
+    {
+        return repository.UnreadCountAsync(SupportAccess.User(currentUser), ct);
+    }
+
+    public async Task MarkReadAsync(Guid id, CancellationToken ct)
+    {
+        var n =
+            await repository.GetNotificationAsync(id, SupportAccess.User(currentUser), ct)
+            ?? throw new NotFoundException("Notificación no encontrada.");
+        n.MarcarLeida(DateTimeOffset.UtcNow);
+        await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    public async Task MarkAllReadAsync(CancellationToken ct)
+    {
+        foreach (var n in await repository.GetUnreadAsync(SupportAccess.User(currentUser), ct))
+            n.MarcarLeida(DateTimeOffset.UtcNow);
+        await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    private static NotificacionResponse Map(Notificacion x)
+    {
+        return new(
+            x.Id,
+            x.SolicitudId,
+            x.Tipo,
+            x.Titulo,
+            x.Mensaje,
+            x.Leida,
+            x.FechaLectura,
+            x.CreatedAt
+        );
+    }
 }
-internal sealed class DashboardService(ISupportRepository repository,ICurrentUserService currentUser):IDashboardService
-{public Task<DashboardResponse> GetAsync(CancellationToken ct)=>repository.GetDashboardAsync(SupportAccess.User(currentUser),currentUser.Roles,ct);}
+
+internal sealed class DashboardService(
+    ISupportRepository repository,
+    ICurrentUserService currentUser
+) : IDashboardService
+{
+    public Task<DashboardResponse> GetAsync(CancellationToken ct)
+    {
+        return repository.GetDashboardAsync(SupportAccess.User(currentUser), currentUser.Roles, ct);
+    }
+}

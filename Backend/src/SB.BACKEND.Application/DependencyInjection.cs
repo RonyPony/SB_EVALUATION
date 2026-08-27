@@ -1,7 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
+
 namespace SB.BACKEND.Application;
+
 public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
-    { ArgumentNullException.ThrowIfNull(services); return services; }
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        return services;
+    }
 }

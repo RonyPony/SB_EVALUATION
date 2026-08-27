@@ -1,90 +1,59 @@
-# Plataforma de soporte SB
+# Frontend de la plataforma de soporte SB
+
+Cliente web desarrollado con React 19, TypeScript y Vite. Consume el API mediante JWT Bearer y guarda la sesión únicamente en `sessionStorage`.
+
+## Requisitos
+
+- Node.js 20 o posterior.
+- npm 10 o posterior.
+- Backend disponible en `http://localhost:5000`.
 
 ## Configuración
 
-Copie `.env.example` a un archivo de ambiente y configure `VITE_API_URL` con el origen del backend. Desarrollo usa `http://localhost:5000` mediante `.env.development`. La URL se valida al cargar la aplicación.
+ `.env.example` como `.env.local` si necesita modificar el origen del API:
 
-La sesión JWT se conserva una sola vez en `sessionStorage`, se valida contra `GET /api/auth/me` y se elimina al expirar, recibir `401` o cerrar sesión. El backend no implementa refresh token ni logout remoto.
+```powershell
+Copy-Item .env.example .env.local
+```
 
-## Ejecución
+La única variable pública requerida es:
 
-```sh
+```dotenv
+VITE_API_URL=http://localhost:5000
+```
+
+No coloque claves JWT, contraseñas ni secretos en variables `VITE_*`: Vite las incorpora al código entregado al navegador.
+
+## Ejecutar
+
+```powershell
 npm install
 npm run dev
 ```
 
-El backend debe estar ejecutándose en el origen configurado.
+Abra `http://localhost:5173`. Para ingresar localmente use `demo` / `demo` después de iniciar el backend en ambiente Development.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Flujo principal
 
-Currently, two official plugins are available:
+1. Iniciar sesión.
+2. Consultar el panel y las solicitudes visibles para el rol actual.
+3. Crear una solicitud seleccionando área, tipo y prioridad.
+4. Como analista o administrador, asignar responsable y cambiar el estado.
+5. Consultar comentarios, historial y notificaciones.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Calidad y pruebas
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```powershell
+npm run lint
+npm run build
+npm test
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+`src/api.test.ts` comprueba la construcción de solicitudes HTTP, encabezados JWT, respuestas y errores del API.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Decisiones
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
+- React organiza la interfaz en componentes funcionales.
+- TypeScript valida contratos y estados durante compilación.
+- La URL del backend se inyecta por ambiente.
+- No existen refresh tokens ni logout remoto; la sesión desaparece al expirar, cerrar sesión o recibir HTTP 401.

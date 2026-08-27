@@ -1,6 +1,6 @@
 # SB.BACKEND
 
-Web API ASP.NET Core en .NET 8 con Onion Architecture, EF Core/SQL Server y autenticación JWT Bearer.
+Web API ASP.NET Core en .NET 8 con Onion Architecture, EF Core/SQL Server, autenticación JWT Bearer y logs estructurados con Serilog.
 
 ## Proyectos
 
@@ -19,11 +19,11 @@ dotnet build .\SB.BACKEND.sln --configuration Debug --no-restore
 
 ## Configuración local
 
-La conexión a `LEGEND\\SQLEXPRESS`, la base `SB_EVALUATION_RONEL` y las credenciales solicitadas están configuradas directamente en `appsettings.json`. El nombre y correo del usuario `demo` permanecen en `appsettings.Development.json`; el seed guarda únicamente el hash de su contraseña en SQL Server.
+La conexión a `LEGEND\\SQLEXPRESS`, la base `SB_EVALUATION_RONEL` y las credenciales solicitadas están configuradas directamente en `appsettings.json`. El nombre y clave del usuario `demo` permanecen en `appsettings.Development.json`; el seed guarda únicamente el hash de su contraseña en SQL Server.
 
 Al iniciar, la aplicación aplica migraciones, crea los roles `Admin` y `User`, asigna todos los permisos a `Admin` y crea el usuario demo de forma idempotente.
 
-Para producción se recomienda sobrescribir `ConnectionStrings__DefaultConnection`, `DemoUser__Password` y `Jwt__SecretKey` mediante variables de entorno y no versionar credenciales reales.
+Para producción se deben sobrescribir `ConnectionStrings__DefaultConnection` y `Jwt__SecretKey` mediante variables de entorno o un almacén de secretos. Defina `DemoUser__Password` como vacío para desactivar la creación del usuario de demostración.
 
 ## Ejecutar
 
@@ -32,6 +32,8 @@ dotnet run --project .\src\SB.BACKEND.Api --launch-profile http
 ```
 
 API: `http://localhost:5080`; Swagger: `http://localhost:5080/swagger`; Health Check: `http://localhost:5080/health`.
+
+Los logs se escriben en consola y en `logs/sb-backend-AAAA-MM-DD.log`, con retención de 14 archivos diarios.
 
 ## Producción
 
@@ -84,7 +86,7 @@ La eliminación es lógica y el filtro global de EF Core excluye registros elimi
 $login = Invoke-RestMethod -Method Post `
   -Uri "http://localhost:5080/api/auth/login" `
   -ContentType "application/json" `
-  -Body '{"username":"demo","password":"the-value-stored-in-user-secrets"}'
+  -Body '{"username":"demo","password":"demo"}'
 
 Invoke-RestMethod -Uri "http://localhost:5080/api/sample/protected" `
   -Headers @{ Authorization = "Bearer $($login.accessToken)" }
@@ -94,7 +96,6 @@ Invoke-RestMethod -Uri "http://localhost:5080/api/sample/admin" `
 ```
 
 También puede ejecutar en orden las solicitudes de `src/SB.BACKEND.Api/SB.BACKEND.Api.http` desde Visual Studio.
-
 
 ### Modelo y persistencia
 
@@ -147,13 +148,12 @@ El listado acepta búsqueda, estado, prioridad, área, solicitante, responsable,
 ### Ejemplo de operación
 
 ```powershell
-$token = (Invoke-RestMethod -Method Post -Uri "http://localhost:5080/api/auth/login" -ContentType "application/json" -Body '{"username":"demo","password":"valor-configurado"}').accessToken
+$token = (Invoke-RestMethod -Method Post -Uri "http://localhost:5080/api/auth/login" -ContentType "application/json" -Body '{"username":"demo","password":"demo"}').accessToken
 $headers = @{ Authorization = "Bearer $token" }
 Invoke-RestMethod -Method Get -Uri "http://localhost:5080/api/areas" -Headers $headers
 Invoke-RestMethod -Method Get -Uri "http://localhost:5080/api/solicitudes?pageNumber=1&pageSize=20" -Headers $headers
 Invoke-RestMethod -Method Get -Uri "http://localhost:5080/api/dashboard/solicitudes" -Headers $headers
 ```
-
 
 ## Referencia documental
 

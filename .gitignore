@@ -1,0 +1,6 @@
+.verification/
+Backend/**/bin/
+Backend/**/obj/
+Frontend/dist/
+Frontend/node_modules/
+Backend/src/SB.BACKEND.Api/logs/

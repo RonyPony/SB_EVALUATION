@@ -24,6 +24,14 @@ export default defineConfig([
       'react-hooks/exhaustive-deps': 'off',
       '@typescript-eslint/no-unused-expressions': 'off',
       'react-refresh/only-export-components': 'off',
+      '@typescript-eslint/naming-convention': [
+        'error',
+        { selector: 'typeLike', format: ['PascalCase'] },
+        { selector: 'interface', format: ['PascalCase'], custom: { regex: '^I[A-Z]', match: true } },
+        { selector: 'parameter', format: ['camelCase'], leadingUnderscore: 'allow' },
+        { selector: 'variable', modifiers: ['const'], format: ['camelCase', 'PascalCase', 'UPPER_CASE'] },
+        { selector: 'function', format: ['camelCase', 'PascalCase'] },
+      ],
     },
   },
 ])

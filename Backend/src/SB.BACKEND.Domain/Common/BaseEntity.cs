@@ -7,6 +7,14 @@ public abstract class BaseEntity
     public DateTimeOffset? UpdatedAt { get; protected set; }
     public bool IsActive { get; protected set; } = true;
 
-    protected void MarkAsUpdated() => UpdatedAt = DateTimeOffset.UtcNow;
-    protected void Deactivate() { IsActive = false; MarkAsUpdated(); }
+    protected void MarkAsUpdated()
+    {
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    protected void Deactivate()
+    {
+        IsActive = false;
+        MarkAsUpdated();
+    }
 }

@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+
 namespace SB.BACKEND.Application.Authentication;
+
 public sealed class LoginRequest
 {
     [Required]
